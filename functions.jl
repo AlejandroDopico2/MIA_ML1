@@ -558,13 +558,10 @@ function confusionMatrix(outputs::AbstractArray{<:Real,2}, targets::AbstractArra
 end
 
 function confusionMatrix(outputs::AbstractArray{<:Any,1}, targets::AbstractArray{<:Any,1}; weighted::Bool=true)
-    @assert all(in.(unique(outputs), unique(targets)))
+    @assert(all([in(output, unique(targets)) for output in outputs]))
     
-    numClasses = length(unique(targets))
-    outputs = classifyOutputs(outputs, targets)
-    targets = classifyOutputs(targets, targets)
-    boolOutputs = classifyOutputs(outputs, targets)
-    boolTargets = classifyOutputs(targets, targets)
+    classes = unique(targets)
+    return confusionMatrix(oneHotEncoding(outputs,classes) ,oneHotEncoding(targets,classes));
     
     return confusionMatrix(boolOutputs, boolTargets, weighted=weighted)
 end
