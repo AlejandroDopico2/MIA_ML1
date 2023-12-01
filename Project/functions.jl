@@ -601,11 +601,35 @@ function crossvalidation(targets::AbstractArray{Bool,2}, k::Int64)
     return idx
 end;
 
+# function crossvalidation(targets::AbstractArray{<:Any,1}, k::Int64)
+#     print("Entra aqui")
+#     # Convert the targets to a binary matrix using one-hot encoding
+#     binary_targets = oneHotEncoding(targets)
+#     # Perform stratified k-fold cross-validation on the binary matrix
+#     idx = crossvalidation(binary_targets, k)
+#     return idx
+# end
+
 function crossvalidation(targets::AbstractArray{<:Any,1}, k::Int64)
-    # Convert the targets to a binary matrix using one-hot encoding
-    binary_targets = oneHotEncoding(targets)
-    # Perform stratified k-fold cross-validation on the binary matrix
-    idx = crossvalidation(binary_targets, k)
+    # Get the unique classes in the targets vector
+    classes = unique(targets)
+    # Initialize the index vector to zeros
+    idx = Int.(zeros(length(targets)))
+    
+    # Iterate over the classes and perform stratified k-fold cross-validation
+    for class in classes
+        # Find the indices of the patterns that belong to the current class
+        classIdx = (targets .== class)
+        # Count the number of instances in the current class
+        numInstances = sum(classIdx)
+        # Check that there are enough instances per class to perform k-fold cross-validation
+        @assert (numInstances .>= k) "There are not enough instances per class to perform a $(k)-fold cross-validation"
+        # Perform stratified k-fold cross-validation on the patterns that belong to the current class
+        classFolds = crossvalidation(numInstances, k)
+        # Update the index vector with the indices of the folds for the current class
+        idx[classIdx] .= classFolds
+    end
+
     return idx
 end
 
@@ -641,7 +665,81 @@ function create_model(modelType::Symbol, modelHyperparameters::Dict)
     end
 end
 
-function train_models(models::AbstractArray{Symbol, 1}, hyperParameters::AbstractArray{<:AbstractDict, 1}, trainingInputs, trainingTargets)
+function train_ann_model(modelHyperparameters, inputs, targets, testInputs, testTargets)
+    testAccuraciesForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
+
+    for numTraining in 1:modelHyperparameters["repetitions"]
+        if modelHyperparameters["validationRatio"] > 0.0
+            trainingInputs, trainingTargets, validationInputs, validationTargets =splitTrainAndValidation(inputs, targets, modelHyperparameters["validationRatio"])
+            
+
+            model, _ = trainClassANN(modelHyperparameters["topology"], (trainingInputs, trainingTargets);
+                                    validationDataset = (validationInputs, validationTargets),
+                                    testDataset = (testInputs, testTargets),
+                                    transferFunctions = modelHyperparameters["transferFunctions"],
+                                    maxEpochs = modelHyperparameters["maxEpochs"],
+                                    learningRate = modelHyperparameters["learningRate"],
+                                    maxEpochsVal = modelHyperparameters["maxEpochsVal"])
+
+        else
+            model, _ = trainClassANN(modelHyperparameters["topology"], (trainingInputs, trainingTargets);
+                                    testDataset = (testInputs, testTargets),
+                                    transferFunctions = modelHyperparameters["transferFunctions"],
+                                    maxEpochs = modelHyperparameters["maxEpochs"],
+                                    learningRate = modelHyperparameters["learningRate"],
+                                    maxEpochsVal = modelHyperparameters["maxEpochsVal"])
+        end
+
+        testOutputs = model(testInputs')'
+        testAccuraciesForEachRepetition[numTraining], _, _, _, _, _, _, _ = confusionMatrix(testOutputs, testTargets)
+
+    end
+
+    return mean(testAccuraciesForEachRepetition)
+end
+
+function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
+    @assert(size(inputs, 1) == length(targets))
+    @assert (in(modelType, [:ANN, :SVM, :kNN, :DecisionTree])) "Model type $(modelType) is not supported"
+
+    Random.seed!(42)
+    
+    kFolds = maximum(crossValidationIndices)
+    testAccuracies = Array{Float64, 1}(undef, kFolds)
+
+    if modelType == :ANN
+        targets = oneHotEncoding(targets)
+    end
+
+    for numFold in 1:kFolds
+        trainingInputs = inputs[crossValidationIndices .!= numFold, :]
+        trainingTargets = targets[crossValidationIndices .!= numFold, :]
+    
+        testInputs = inputs[crossValidationIndices .== numFold, :]
+        testTargets = targets[crossValidationIndices .== numFold, :]
+
+        if modelType != :ANN
+            model = create_model(modelType, modelHyperparameters)
+            print("Training model at fold $(numFold)")
+            model, _ = train_and_predict(model, trainingInputs, trainingTargets, testInputs, testTargets)
+
+            testOutputs = predict(model, testInputs)
+            # testOutputs = oneHotEncoding(testOutputs, unique(testTargets))
+            # testTargets = oneHotEncoding(vec(testTargets))
+            # println(testOutputs)
+            testAccuracy, _, testRecall, _, _, _, _, _ = confusionMatrix(testOutputs, vec(testTargets))
+            println("Recall at fold  $numFold is $testRecall")
+        else
+            testAccuracy = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
+        end
+
+        testAccuracies[numFold] = testAccuracy
+    end
+
+    return mean(testAccuracies), std(testAccuracies)
+end
+
+function train_models(models::AbstractArray{Symbol, 1}, hyperParameters::AbstractArray{<:AbstractDict, 1}, trainingInputs, trainingTargets, testInputs, testTargets)
     Random.seed!(42)
 
     ensemble_models = []
@@ -653,7 +751,6 @@ function train_models(models::AbstractArray{Symbol, 1}, hyperParameters::Abstrac
 
         model = create_model(modelType, hyperParameter)
         fit!(model, trainingInputs, vec(trainingTargets))
-
         name = "model_$(i)"
 
         push!(ensemble_models, (name, model))
@@ -668,9 +765,10 @@ function train_and_predict(model, trainingInputs, trainingTargets, testInputs, t
     fit!(model, trainingInputs, vec(trainingTargets))
     testOutputs = predict(model, testInputs)
     
-    testAccuracy, _, _, _, _, _, _, _ = confusionMatrix(testOutputs, vec(testTargets))
-    
-    return model, testAccuracy
+    testAccuracy, _, testSensitivity , _, _, _, _, _ = confusionMatrix(testOutputs, vec(testTargets))
+    # accuracy, errorRate, sensitivity, specificity, precision, negative_predictive_value, fScore, confusion_matrix
+        
+    return model, testAccuracy, testSensitivity
 end
 
 
@@ -681,19 +779,21 @@ function trainClassEnsemble(estimators::AbstractArray{Symbol,1},
     
     kFolds = maximum(kFoldIndices)
     testAccuracies = Array{Float64, 1}(undef, kFolds)
-    testAccuraciesEnsemble = Array{Float64, 1}(undef, kFolds)
+    testRecalls = Array{Float64, 1}(undef, kFolds)
 
     for numFold in 1:kFolds
         (trainingInputs, trainingTargets, testInputs, testTargets) = splitCrossValidationData(trainingDataset, numFold, kFoldIndices)
 
-        models = train_models(estimators, modelsHyperParameters, trainingInputs, trainingTargets)
+        models = train_models(estimators, modelsHyperParameters, trainingInputs, trainingTargets, testInputs, testTargets)
         
-        ensembleModel = VotingClassifier(estimators = models, n_jobs=1, voting="hard")
+        ensembleModel = VotingClassifier(estimators = models, voting="hard")
 
-        testAccuracies[numFold] = train_and_predict(ensembleModel, trainingInputs, trainingTargets, testInputs, testTargets)[2]
+        _, acc, recall = train_and_predict(ensembleModel, trainingInputs, trainingTargets, testInputs, testTargets)
+        testAccuracies[numFold] = acc
+        testRecalls[numFold] = recall
     end
 
-    return (mean(testAccuracies), std(testAccuracies))
+    return (mean(testAccuracies), std(testAccuracies), mean(testRecalls), std(testRecalls))
 
 end
 

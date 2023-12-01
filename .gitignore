@@ -131,3 +131,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .DS_Store
+
+# CSV dataset (too large)
+
+Project/dataset/*.csv
