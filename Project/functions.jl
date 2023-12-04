@@ -304,11 +304,11 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
         end
 
         if useTest
-            testOutputs = ann(testInputs')
-            testAcc = accuracy(testOutputs',       testTargets)
+            testOutputs = ann(testInputs')'
+            testAcc = accuracy(vec(testOutputs), vec(testTargets))
         end
         
-        trainingAcc   = accuracy(trainingOutputs',   trainingTargets)
+        trainingAcc   = accuracy(vec(trainingOutputs'),   vec(trainingTargets))
 
         # Update the history of losses and accuracies
         push!(trainingLosses, trainingLoss)
@@ -650,6 +650,16 @@ function splitCrossValidationData(
 
 end
 
+function splitTrainAndValidation(inputs, targets, validationRatio)
+    (trainingIndexes, validationIndexes) = holdOut(size(inputs, 1), validationRatio)
+    validationInputs = inputs[validationIndexes,:]
+    validationTargets = targets[validationIndexes,:]
+    trainingInputs = inputs[trainingIndexes,:]
+    trainingTargets = targets[trainingIndexes,:]
+
+    return trainingInputs, trainingTargets, validationInputs, validationTargets
+end
+
 function create_model(modelType::Symbol, modelHyperparameters::Dict)
     if modelType == :SVM
         return SVC(kernel=modelHyperparameters["kernel"],
@@ -667,11 +677,11 @@ end
 
 function train_ann_model(modelHyperparameters, inputs, targets, testInputs, testTargets)
     testAccuraciesForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
+    testRecallForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
 
     for numTraining in 1:modelHyperparameters["repetitions"]
         if modelHyperparameters["validationRatio"] > 0.0
-            trainingInputs, trainingTargets, validationInputs, validationTargets =splitTrainAndValidation(inputs, targets, modelHyperparameters["validationRatio"])
-            
+            trainingInputs, trainingTargets, validationInputs, validationTargets = splitTrainAndValidation(inputs, targets, modelHyperparameters["validationRatio"])
 
             model, _ = trainClassANN(modelHyperparameters["topology"], (trainingInputs, trainingTargets);
                                     validationDataset = (validationInputs, validationTargets),
@@ -682,20 +692,20 @@ function train_ann_model(modelHyperparameters, inputs, targets, testInputs, test
                                     maxEpochsVal = modelHyperparameters["maxEpochsVal"])
 
         else
-            model, _ = trainClassANN(modelHyperparameters["topology"], (trainingInputs, trainingTargets);
+            model, _ = trainClassANN(modelHyperparameters["topology"], (inputs, targets);
                                     testDataset = (testInputs, testTargets),
                                     transferFunctions = modelHyperparameters["transferFunctions"],
                                     maxEpochs = modelHyperparameters["maxEpochs"],
                                     learningRate = modelHyperparameters["learningRate"],
                                     maxEpochsVal = modelHyperparameters["maxEpochsVal"])
         end
-
-        testOutputs = model(testInputs')'
-        testAccuraciesForEachRepetition[numTraining], _, _, _, _, _, _, _ = confusionMatrix(testOutputs, testTargets)
-
+        
+        testOutputs = vec(model(testInputs')')
+        testAccuraciesForEachRepetition[numTraining], _, testRecallForEachRepetition[numTraining], _, _, _, _, _ = confusionMatrix(testOutputs, vec(testTargets))
+        
     end
 
-    return mean(testAccuraciesForEachRepetition)
+    return mean(testAccuraciesForEachRepetition), mean(testRecallForEachRepetition)
 end
 
 function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
@@ -706,6 +716,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
     
     kFolds = maximum(crossValidationIndices)
     testAccuracies = Array{Float64, 1}(undef, kFolds)
+    testRecalls = Array{Float64, 1}(undef, kFolds)
 
     if modelType == :ANN
         targets = oneHotEncoding(targets)
@@ -720,7 +731,6 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
 
         if modelType != :ANN
             model = create_model(modelType, modelHyperparameters)
-            print("Training model at fold $(numFold)")
             model, _ = train_and_predict(model, trainingInputs, trainingTargets, testInputs, testTargets)
 
             testOutputs = predict(model, testInputs)
@@ -728,15 +738,17 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
             # testTargets = oneHotEncoding(vec(testTargets))
             # println(testOutputs)
             testAccuracy, _, testRecall, _, _, _, _, _ = confusionMatrix(testOutputs, vec(testTargets))
-            println("Recall at fold  $numFold is $testRecall")
+            println(testRecall)
         else
-            testAccuracy = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
+            testAccuracy, testRecall = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
+            println(testRecall)
         end
 
         testAccuracies[numFold] = testAccuracy
+        testRecalls[numFold] = testRecall
     end
 
-    return mean(testAccuracies), std(testAccuracies)
+    return mean(testAccuracies), std(testAccuracies), mean(testRecalls), std(testRecalls)
 end
 
 function train_models(models::AbstractArray{Symbol, 1}, hyperParameters::AbstractArray{<:AbstractDict, 1}, trainingInputs, trainingTargets, testInputs, testTargets)
