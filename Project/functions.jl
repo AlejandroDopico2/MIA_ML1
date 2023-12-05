@@ -300,7 +300,7 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
         
         if useValidation
             validationOutputs = ann(validationInputs')
-            validationAcc = accuracy(validationOutputs', validationTargets)
+            validationAcc = accuracy(vec(validationOutputs'), vec(validationTargets))
         end
 
         if useTest
@@ -678,8 +678,14 @@ end
 function train_ann_model(modelHyperparameters, inputs, targets, testInputs, testTargets)
     testAccuraciesForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
     testRecallForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
+    testErrorRateForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
+    testSpecificityForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
+    testPrecisionForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
+    testNegative_predictive_valueForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
+    testfScoreForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
 
     for numTraining in 1:modelHyperparameters["repetitions"]
+        println("Training $numTraining")
         if modelHyperparameters["validationRatio"] > 0.0
             trainingInputs, trainingTargets, validationInputs, validationTargets = splitTrainAndValidation(inputs, targets, modelHyperparameters["validationRatio"])
 
@@ -701,11 +707,22 @@ function train_ann_model(modelHyperparameters, inputs, targets, testInputs, test
         end
         
         testOutputs = vec(model(testInputs')')
-        testAccuraciesForEachRepetition[numTraining], _, testRecallForEachRepetition[numTraining], _, _, _, _, _ = confusionMatrix(testOutputs, vec(testTargets))
-        
+        testAccuraciesForEachRepetition[numTraining],
+            testErrorRateForEachRepetition[numTraining],
+            testRecallForEachRepetition[numTraining],
+            testSpecificityForEachRepetition[numTraining],
+            testPrecisionForEachRepetition[numTraining],
+            testNegative_predictive_valueForEachRepetition[numTraining],
+            testfScoreForEachRepetition[numTraining], _ = confusionMatrix(testOutputs, vec(testTargets))
+
     end
 
-    return mean(testAccuraciesForEachRepetition), mean(testRecallForEachRepetition)
+    return (accuracy = mean(testAccuracies),
+        recall = mean(testRecalls),
+        error_rate = mean(testErrorRateForEachRepetition),
+        specificity = mean(testSpecificities),
+        precision = mean(testPrecisions),
+        f1_score = mean(testfScores))
 end
 
 function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
@@ -717,6 +734,11 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
     kFolds = maximum(crossValidationIndices)
     testAccuracies = Array{Float64, 1}(undef, kFolds)
     testRecalls = Array{Float64, 1}(undef, kFolds)
+    testErrorRates = Array{Float64, 1}(undef, kFolds)
+    testSpecificities = Array{Float64, 1}(undef, kFolds)
+    testPrecisions = Array{Float64, 1}(undef, kFolds)
+    testNPVs = Array{Float64, 1}(undef, kFolds)
+    testfScores = Array{Float64, 1}(undef, kFolds)
 
     if modelType == :ANN
         targets = oneHotEncoding(targets)
@@ -737,18 +759,60 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
             # testOutputs = oneHotEncoding(testOutputs, unique(testTargets))
             # testTargets = oneHotEncoding(vec(testTargets))
             # println(testOutputs)
-            testAccuracy, _, testRecall, _, _, _, _, _ = confusionMatrix(testOutputs, vec(testTargets))
-            println(testRecall)
+            testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNPV, testfScore, _ = confusionMatrix(testOutputs, vec(testTargets))
         else
-            testAccuracy, testRecall = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
-            println(testRecall)
+            testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNPV, testfScore = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
         end
 
         testAccuracies[numFold] = testAccuracy
         testRecalls[numFold] = testRecall
+        testErrorRates[numFold] = testErrorRate
+        testSpecificities[numFold] = testSpecificity
+        testPrecisions[numFold] = testPrecision
+        testNPVs[numFold] = testNPV
+        testfScores[numFold] = testfScore
     end
 
-    return mean(testAccuracies), std(testAccuracies), mean(testRecalls), std(testRecalls)
+    #return mean(testAccuracies), std(testAccuracies), mean(testErrorRates), std(testErrorRates), mean(testRecalls), std(testRecalls), mean(testSpecificities), std(testSpecificities), mean(testPrecisions), std(testPrecisions), mean(testNPVs), std(testNPVs), mean(testfScores), std(testfScores)
+    return Dict(
+        "accuracy" => mean(testAccuracies),
+        "std_accuracy" => std(testAccuracies),
+        "recall" => mean(testRecalls),
+        "std_recall" => std(testRecalls),
+        "specificity" => mean(testSpecificities),
+        "std_specificity" => std(testSpecificities),
+        "precision" => mean(testPrecisions),
+        "std_precision" => std(testPrecisions),
+        "f1_score" => mean(testfScores),
+        "std_f1_score" => std(testfScores)
+    )
+end
+
+function createAndTrainFinalModel(modelType::Symbol, modelHyperparameters::Dict, trainingInputs::AbstractArray{<:Real,2}, trainingTargets::AbstractArray{<:Any,1}, testInputs::AbstractArray{<:Real,2}, testTargets::AbstractArray{<:Any,1})
+    @assert(size(trainingInputs, 1) == length(trainingTargets))
+    @assert(size(testInputs, 1) == length(testTargets))
+    @assert (in(modelType, [:ANN, :SVM, :kNN, :DecisionTree])) "Model type $(modelType) is not supported"
+    
+    Random.seed!(42)
+
+    if modelType == :ANN
+        trainingTargets = oneHotEncoding(trainingTargets)
+        testTargets = oneHotEncoding(testTargets)
+    end
+
+    model = create_model(modelType, modelHyperparameters)
+    model, testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegativePredictiveValue, testfScore, testConfusionMatrix = train_and_predict(model, trainingInputs, trainingTargets, testInputs, testTargets)
+
+    return Dict(
+        "accuracy" => testAccuracy,
+        "recall" => testRecall,
+        "errorRate" => testErrorRate,
+        "specificity" => testSpecificity,
+        "precision" => testPrecision,
+        "negative_predictive_value" => testNegativePredictiveValue,
+        "f1_score" => testfScore,
+        "confusion_matrix" => testConfusionMatrix
+    )
 end
 
 function train_models(models::AbstractArray{Symbol, 1}, hyperParameters::AbstractArray{<:AbstractDict, 1}, trainingInputs, trainingTargets, testInputs, testTargets)
@@ -777,10 +841,10 @@ function train_and_predict(model, trainingInputs, trainingTargets, testInputs, t
     fit!(model, trainingInputs, vec(trainingTargets))
     testOutputs = predict(model, testInputs)
     
-    testAccuracy, _, testSensitivity , _, _, _, _, _ = confusionMatrix(testOutputs, vec(testTargets))
+    testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegative_predictive_value, testfScore, testConfusionMatrix = confusionMatrix(testOutputs, vec(testTargets))
     # accuracy, errorRate, sensitivity, specificity, precision, negative_predictive_value, fScore, confusion_matrix
         
-    return model, testAccuracy, testSensitivity
+    return model, testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegative_predictive_value, testfScore, testConfusionMatrix
 end
 
 
