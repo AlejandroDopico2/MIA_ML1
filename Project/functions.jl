@@ -665,11 +665,11 @@ function create_model(modelType::Symbol, modelHyperparameters::Dict)
         return SVC(kernel=modelHyperparameters["kernel"],
                    degree=modelHyperparameters["degree"],
                    gamma=modelHyperparameters["gamma"],
-                   C=modelHyperparameters["C"])
+                   C=modelHyperparameters["C"], class_weight = "balanced")
     elseif modelType == :kNN
         return KNeighborsClassifier(modelHyperparameters["numNeighboors"])
     elseif modelType == :DecisionTree
-        return DecisionTreeClassifier(max_depth=modelHyperparameters["maxDepth"])
+        return DecisionTreeClassifier(max_depth=modelHyperparameters["maxDepth"], class_weight = "balanced")
     else
         error("Model type not supported")
     end
@@ -683,9 +683,9 @@ function train_ann_model(modelHyperparameters, inputs, targets, testInputs, test
     testPrecisionForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
     testNegative_predictive_valueForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
     testfScoreForEachRepetition = Array{Float64, 1}(undef, modelHyperparameters["repetitions"])
+    testConfusionMatrix = []
 
     for numTraining in 1:modelHyperparameters["repetitions"]
-        println("Training $numTraining")
         if modelHyperparameters["validationRatio"] > 0.0
             trainingInputs, trainingTargets, validationInputs, validationTargets = splitTrainAndValidation(inputs, targets, modelHyperparameters["validationRatio"])
 
@@ -713,16 +713,18 @@ function train_ann_model(modelHyperparameters, inputs, targets, testInputs, test
             testSpecificityForEachRepetition[numTraining],
             testPrecisionForEachRepetition[numTraining],
             testNegative_predictive_valueForEachRepetition[numTraining],
-            testfScoreForEachRepetition[numTraining], _ = confusionMatrix(testOutputs, vec(testTargets))
+            testfScoreForEachRepetition[numTraining], testConfusionMatrix = confusionMatrix(testOutputs, vec(testTargets))
 
     end
 
-    return (accuracy = mean(testAccuracies),
-        recall = mean(testRecalls),
+    return (accuracy = mean(testAccuraciesForEachRepetition),
         error_rate = mean(testErrorRateForEachRepetition),
-        specificity = mean(testSpecificities),
-        precision = mean(testPrecisions),
-        f1_score = mean(testfScores))
+        recall = mean(testRecallForEachRepetition),
+        specificity = mean(testSpecificityForEachRepetition),
+        precision = mean(testPrecisionForEachRepetition),
+        negative_predictive_value = mean(testNegative_predictive_valueForEachRepetition),
+        f1_score = mean(testfScoreForEachRepetition),
+        confusion_matrix = testConfusionMatrix)
 end
 
 function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inputs::AbstractArray{<:Real,2}, targets::AbstractArray{<:Any,1}, crossValidationIndices::Array{Int64,1})
@@ -761,7 +763,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
             # println(testOutputs)
             testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNPV, testfScore, _ = confusionMatrix(testOutputs, vec(testTargets))
         else
-            testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNPV, testfScore = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
+            testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNPV, testfScore, _ = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
         end
 
         testAccuracies[numFold] = testAccuracy
@@ -773,8 +775,7 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
         testfScores[numFold] = testfScore
     end
 
-    #return mean(testAccuracies), std(testAccuracies), mean(testErrorRates), std(testErrorRates), mean(testRecalls), std(testRecalls), mean(testSpecificities), std(testSpecificities), mean(testPrecisions), std(testPrecisions), mean(testNPVs), std(testNPVs), mean(testfScores), std(testfScores)
-    return Dict(
+    return Dict{String, Any}(
         "accuracy" => mean(testAccuracies),
         "std_accuracy" => std(testAccuracies),
         "recall" => mean(testRecalls),
@@ -798,12 +799,15 @@ function createAndTrainFinalModel(modelType::Symbol, modelHyperparameters::Dict,
     if modelType == :ANN
         trainingTargets = oneHotEncoding(trainingTargets)
         testTargets = oneHotEncoding(testTargets)
+        modelHyperparameters["repetitions"] = 1
+        testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegativePredictiveValue, testfScore, testConfusionMatrix = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
+    else
+        model = create_model(modelType, modelHyperparameters)
+        model, testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegativePredictiveValue, testfScore, testConfusionMatrix = train_and_predict(model, trainingInputs, trainingTargets, testInputs, testTargets)
     end
 
-    model = create_model(modelType, modelHyperparameters)
-    model, testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegativePredictiveValue, testfScore, testConfusionMatrix = train_and_predict(model, trainingInputs, trainingTargets, testInputs, testTargets)
 
-    return Dict(
+    return Dict{String, Any}(
         "accuracy" => testAccuracy,
         "recall" => testRecall,
         "errorRate" => testErrorRate,
@@ -856,20 +860,61 @@ function trainClassEnsemble(estimators::AbstractArray{Symbol,1},
     kFolds = maximum(kFoldIndices)
     testAccuracies = Array{Float64, 1}(undef, kFolds)
     testRecalls = Array{Float64, 1}(undef, kFolds)
+    testErrorRates = Array{Float64, 1}(undef, kFolds)
+    testSpecificities = Array{Float64, 1}(undef, kFolds)
+    testPrecisions = Array{Float64, 1}(undef, kFolds)
+    testNPVs = Array{Float64, 1}(undef, kFolds)
+    testfScores = Array{Float64, 1}(undef, kFolds)
 
     for numFold in 1:kFolds
         (trainingInputs, trainingTargets, testInputs, testTargets) = splitCrossValidationData(trainingDataset, numFold, kFoldIndices)
 
         models = train_models(estimators, modelsHyperParameters, trainingInputs, trainingTargets, testInputs, testTargets)
         
-        ensembleModel = VotingClassifier(estimators = models, voting="hard")
+        # ensembleModel = VotingClassifier(estimators = models, voting="hard")
+        ensembleModel = StackingClassifier(estimators=models,
+            final_estimator=SVC(probability=true, class_weight = "balanced"), n_jobs=1)
 
-        _, acc, recall = train_and_predict(ensembleModel, trainingInputs, trainingTargets, testInputs, testTargets)
-        testAccuracies[numFold] = acc
-        testRecalls[numFold] = recall
+        model, _ = train_and_predict(ensembleModel, trainingInputs, trainingTargets, testInputs, testTargets)
+
+        testOutputs = predict(model, testInputs)
+        
+        testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNPV, testfScore, _ = confusionMatrix(testOutputs, vec(testTargets))
+
+        testAccuracies[numFold] = testAccuracy
+        testRecalls[numFold] = testRecall
+        testErrorRates[numFold] = testErrorRate
+        testSpecificities[numFold] = testSpecificity
+        testPrecisions[numFold] = testPrecision
+        testNPVs[numFold] = testNPV
+        testfScores[numFold] = testfScore
     end
 
-    return (mean(testAccuracies), std(testAccuracies), mean(testRecalls), std(testRecalls))
+    return Dict{String, Any}(
+        "accuracy" => mean(testAccuracies),
+        "std_accuracy" => std(testAccuracies),
+        "recall" => mean(testRecalls),
+        "std_recall" => std(testRecalls),
+        "specificity" => mean(testSpecificities),
+        "std_specificity" => std(testSpecificities),
+        "precision" => mean(testPrecisions),
+        "std_precision" => std(testPrecisions),
+        "f1_score" => mean(testfScores),
+        "std_f1_score" => std(testfScores)
+    )
+
+end
+
+function trainClassEnsemble(estimators::AbstractArray{Symbol,1}, 
+    modelsHyperParameters:: AbstractArray{<:AbstractDict, 1},     
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}},    
+    kFoldIndices::Array{Int64,1})
+
+    inputs, targets = trainingDataset
+
+    targets = reshape(targets, :, 1)
+
+    return trainClassEnsemble(estimators, modelsHyperParameters, (inputs, targets), kFoldIndices)
 
 end
 
