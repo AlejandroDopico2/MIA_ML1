@@ -300,15 +300,15 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
         
         if useValidation
             validationOutputs = ann(validationInputs')
-            validationAcc = accuracy(vec(validationOutputs'), vec(validationTargets))
+            validationAcc = accuracy(validationOutputs', validationTargets)
         end
 
         if useTest
             testOutputs = ann(testInputs')'
-            testAcc = accuracy(vec(testOutputs), vec(testTargets))
+            testAcc = accuracy(testOutputs, testTargets)
         end
         
-        trainingAcc   = accuracy(vec(trainingOutputs'),   vec(trainingTargets))
+        trainingAcc   = accuracy(trainingOutputs',   trainingTargets)
 
         # Update the history of losses and accuracies
         push!(trainingLosses, trainingLoss)
@@ -634,7 +634,7 @@ function crossvalidation(targets::AbstractArray{<:Any,1}, k::Int64)
 end
 
 function splitCrossValidationData(
-    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,2}},
     numFold::Int64, 
     kFoldIndices::Array{Int64,1})
 
@@ -663,13 +663,15 @@ end
 function create_model(modelType::Symbol, modelHyperparameters::Dict)
     if modelType == :SVM
         return SVC(kernel=modelHyperparameters["kernel"],
-                   degree=modelHyperparameters["degree"],
-                   gamma=modelHyperparameters["gamma"],
-                   C=modelHyperparameters["C"], class_weight = "balanced")
+                   degree = get(modelHyperparameters, "degree", 3),
+                   gamma = get(modelHyperparameters, "gamma", "scale"),
+                   C = modelHyperparameters["C"],
+                   class_weight = get(modelHyperparameters, "class_weight", nothing))
     elseif modelType == :kNN
         return KNeighborsClassifier(modelHyperparameters["numNeighboors"])
     elseif modelType == :DecisionTree
-        return DecisionTreeClassifier(max_depth=modelHyperparameters["maxDepth"], class_weight = "balanced")
+        return DecisionTreeClassifier(max_depth=modelHyperparameters["maxDepth"],
+                    class_weight = get(modelHyperparameters, "class_weight", nothing), random_state = 42)
     else
         error("Model type not supported")
     end
@@ -687,8 +689,9 @@ function train_ann_model(modelHyperparameters, inputs, targets, testInputs, test
 
     for numTraining in 1:modelHyperparameters["repetitions"]
         if modelHyperparameters["validationRatio"] > 0.0
+            println(size(targets))
             trainingInputs, trainingTargets, validationInputs, validationTargets = splitTrainAndValidation(inputs, targets, modelHyperparameters["validationRatio"])
-
+            println(size(trainingTargets), size(testTargets))
             model, _ = trainClassANN(modelHyperparameters["topology"], (trainingInputs, trainingTargets);
                                     validationDataset = (validationInputs, validationTargets),
                                     testDataset = (testInputs, testTargets),
@@ -706,14 +709,14 @@ function train_ann_model(modelHyperparameters, inputs, targets, testInputs, test
                                     maxEpochsVal = modelHyperparameters["maxEpochsVal"])
         end
         
-        testOutputs = vec(model(testInputs')')
+        testOutputs = model(testInputs')'
         testAccuraciesForEachRepetition[numTraining],
             testErrorRateForEachRepetition[numTraining],
             testRecallForEachRepetition[numTraining],
             testSpecificityForEachRepetition[numTraining],
             testPrecisionForEachRepetition[numTraining],
             testNegative_predictive_valueForEachRepetition[numTraining],
-            testfScoreForEachRepetition[numTraining], testConfusionMatrix = confusionMatrix(testOutputs, vec(testTargets))
+            testfScoreForEachRepetition[numTraining], testConfusionMatrix = confusionMatrix(testOutputs, testTargets)
 
     end
 
@@ -800,6 +803,7 @@ function createAndTrainFinalModel(modelType::Symbol, modelHyperparameters::Dict,
         trainingTargets = oneHotEncoding(trainingTargets)
         testTargets = oneHotEncoding(testTargets)
         modelHyperparameters["repetitions"] = 1
+        println(size(testTargets))
         testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegativePredictiveValue, testfScore, testConfusionMatrix = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
     else
         model = create_model(modelType, modelHyperparameters)
@@ -817,6 +821,57 @@ function createAndTrainFinalModel(modelType::Symbol, modelHyperparameters::Dict,
         "f1_score" => testfScore,
         "confusion_matrix" => testConfusionMatrix
     )
+end
+
+function createAndTrainFinalEnsemble(estimators::AbstractArray{Symbol,1}, 
+    modelsHyperParameters:: AbstractArray{<:AbstractDict, 1},     
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,2}},
+    testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,2}};
+    ensembleType::Symbol = :VotingHard,
+    final_estimator:: AbstractDict = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 1))
+
+    Random.seed!(42)
+
+    trainingInputs, trainingTargets = trainingDataset
+    testInputs, testTargets = testDataset
+
+    models = train_models(estimators, modelsHyperParameters, trainingInputs, trainingTargets, testInputs, testTargets)
+
+    # ensembleModel = StackingClassifier(estimators=models,
+    #     final_estimator=create_model(final_estimator["modelType"], final_estimator), n_jobs=1)
+
+    ensembleModel = create_ensemble(ensembleType, models, final_estimator)
+
+    ensembleModel, testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegativePredictiveValue, testfScore, testConfusionMatrix = train_and_predict(ensembleModel, trainingInputs, trainingTargets, testInputs, testTargets)
+
+
+    return Dict{String, Any}(
+        "accuracy" => testAccuracy,
+        "recall" => testRecall,
+        "errorRate" => testErrorRate,
+        "specificity" => testSpecificity,
+        "precision" => testPrecision,
+        "negative_predictive_value" => testNegativePredictiveValue,
+        "f1_score" => testfScore,
+        "confusion_matrix" => testConfusionMatrix
+    )
+end
+
+function createAndTrainFinalEnsemble(estimators::AbstractArray{Symbol,1}, 
+    modelsHyperParameters:: AbstractArray{<:AbstractDict, 1},     
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}},
+    testDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}};
+    ensembleType:: Symbol = :VotingHard,
+    final_estimator:: AbstractDict = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 1))
+
+    trainingInputs, trainingTargets = trainingDataset
+    testInputs, testTargets = testDataset
+
+    trainingTargets = reshape(trainingTargets, :, 1)
+    testTargets = reshape(testTargets, :, 1)
+
+    return createAndTrainFinalEnsemble(estimators, modelsHyperParameters, (trainingInputs, trainingTargets), (testInputs, testTargets); ensembleType = ensembleType, final_estimator = final_estimator)
+
 end
 
 function train_models(models::AbstractArray{Symbol, 1}, hyperParameters::AbstractArray{<:AbstractDict, 1}, trainingInputs, trainingTargets, testInputs, testTargets)
@@ -851,11 +906,22 @@ function train_and_predict(model, trainingInputs, trainingTargets, testInputs, t
     return model, testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegative_predictive_value, testfScore, testConfusionMatrix
 end
 
+function create_ensemble(ensemble_type::Symbol, estimators::AbstractArray{<:Any}, final_estimator::AbstractDict{<:Any})
+
+    if ensemble_type == :VotingHard
+        return VotingClassifier(estimators = estimators, voting="hard", n_jobs=1)
+    elseif ensemble_type == :Stacking
+        return StackingClassifier(estimators = estimators, final_estimator = create_model(final_estimator["modelType"], final_estimator), n_jobs = 1)
+    end
+end
+
 
 function trainClassEnsemble(estimators::AbstractArray{Symbol,1}, 
         modelsHyperParameters:: AbstractArray{<:AbstractDict, 1},     
-        trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},    
-        kFoldIndices::     Array{Int64,1})
+        trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,2}},    
+        kFoldIndices::     Array{Int64,1};
+        ensembleType::Symbol = :VotingHard,
+        final_estimator:: AbstractDict = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 1))
     
     kFolds = maximum(kFoldIndices)
     testAccuracies = Array{Float64, 1}(undef, kFolds)
@@ -872,8 +938,9 @@ function trainClassEnsemble(estimators::AbstractArray{Symbol,1},
         models = train_models(estimators, modelsHyperParameters, trainingInputs, trainingTargets, testInputs, testTargets)
         
         # ensembleModel = VotingClassifier(estimators = models, voting="hard")
-        ensembleModel = StackingClassifier(estimators=models,
-            final_estimator=SVC(probability=true, class_weight = "balanced"), n_jobs=1)
+        # ensembleModel = StackingClassifier(estimators=models,
+        #     final_estimator=create_model(final_estimator["modelType"], final_estimator), n_jobs=1)
+        ensembleModel = create_ensemble(ensembleType, models, final_estimator)
 
         model, _ = train_and_predict(ensembleModel, trainingInputs, trainingTargets, testInputs, testTargets)
 
@@ -907,22 +974,25 @@ end
 
 function trainClassEnsemble(estimators::AbstractArray{Symbol,1}, 
     modelsHyperParameters:: AbstractArray{<:AbstractDict, 1},     
-    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,1}},    
-    kFoldIndices::Array{Int64,1})
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,1}},    
+    kFoldIndices::Array{Int64,1};
+    ensembleType::Symbol = :VotingHard,
+    final_estimator:: AbstractDict = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 1))
 
     inputs, targets = trainingDataset
 
     targets = reshape(targets, :, 1)
 
-    return trainClassEnsemble(estimators, modelsHyperParameters, (inputs, targets), kFoldIndices)
+    return trainClassEnsemble(estimators, modelsHyperParameters, (inputs, targets), kFoldIndices; ensembleType = ensembleType, final_estimator = final_estimator)
 
 end
 
 function trainClassEnsemble(baseEstimator::Symbol, 
     modelsHyperParameters::AbstractDict,
-    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{Bool,2}},     
+    trainingDataset::Tuple{AbstractArray{<:Real,2}, AbstractArray{<:Any,2}},     
     kFoldIndices::Array{Int64,1};
-    NumEstimators::Int=100)
+    NumEstimators::Int=100,
+    final_estimator:: AbstractDict = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 1))
 
 estimators = fill(baseEstimator, NumEstimators)
 modelsHyperParameters = fill(modelsHyperParameters, NumEstimators)
