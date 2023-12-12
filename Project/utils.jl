@@ -1207,9 +1207,7 @@ function train_ann_model(modelHyperparameters, inputs, targets, testInputs, test
 
     for numTraining in 1:modelHyperparameters["repetitions"]
         if modelHyperparameters["validationRatio"] > 0.0
-            println(size(targets))
             trainingInputs, trainingTargets, validationInputs, validationTargets = splitTrainAndValidation(inputs, targets, modelHyperparameters["validationRatio"])
-            println(size(trainingTargets), size(testTargets))
             model, _ = trainClassANN(modelHyperparameters["topology"], (trainingInputs, trainingTargets);
                                     validationDataset = (validationInputs, validationTargets),
                                     testDataset = (testInputs, testTargets),
@@ -1279,9 +1277,6 @@ function modelCrossValidation(modelType::Symbol, modelHyperparameters::Dict, inp
             model, _ = train_and_predict(model, trainingInputs, trainingTargets, testInputs, testTargets)
 
             testOutputs = predict(model, testInputs)
-            # testOutputs = oneHotEncoding(testOutputs, unique(testTargets))
-            # testTargets = oneHotEncoding(vec(testTargets))
-            # println(testOutputs)
             testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNPV, testfScore, _ = confusionMatrix(testOutputs, vec(testTargets))
         else
             testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNPV, testfScore, _ = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
