@@ -6,7 +6,7 @@ using ScikitLearn
 
 @sk_import svm:SVC;
 @sk_import tree:DecisionTreeClassifier;
-@sk_import neighbors: KNeighborsClassifier;
+@sk_import neighbors:KNeighborsClassifier;
 @sk_import ensemble:StackingClassifier
 @sk_import ensemble:VotingClassifier
 
@@ -26,40 +26,45 @@ function ip_to_decimal(ip)
     # Split the IP address into octets
     octets = split(ip, '.')
     # Convert each octet to binary and combine them into a single 32-bit number
-    binary = join([string(parse(Int, octet, base=10), base=2, pad=8) for octet in octets])
-    decimal = parse(Int, binary, base=2) # Convert binary to decimal
+    binary =
+        join([string(parse(Int, octet, base = 10), base = 2, pad = 8) for octet in octets])
+    decimal = parse(Int, binary, base = 2) # Convert binary to decimal
     return decimal
 end
 
-function generate_latex_table(metrics::Dict{String, <: Any}, final::Bool)
-    
+function generate_latex_table(metrics::Dict{String,<:Any}, final::Bool)
+
     topology = metrics["topology"]
     accuracy = metrics["accuracy"]
     recall = metrics["recall"]
     specificity = metrics["specificity"]
     f1_score = metrics["f1_score"]
-    
+
     if final
         confusion_matrix = metrics["confusion_matrix"]
-        println("$topology & $(round(accuracy*100, digits=2))\\%  & $(round(recall*100, digits=2))\\%  & $(round(specificity*100, digits=2))\\%  & $(round(f1_score*100, digits=2))\\% & $confusion_matrix \\\\")
+        println(
+            "$topology & $(round(accuracy*100, digits=2))\\%  & $(round(recall*100, digits=2))\\%  & $(round(specificity*100, digits=2))\\%  & $(round(f1_score*100, digits=2))\\% & $confusion_matrix \\\\",
+        )
     else
         std_accuracy = metrics["std_accuracy"]
         std_recall = metrics["std_recall"]
         std_specificity = metrics["std_specificity"]
         std_f1_score = metrics["std_f1_score"]
-        println("$topology & $(round(accuracy*100, digits=2))\\% \\textit{($(round(std_accuracy, digits = 2)))} & $(round(recall*100, digits=2))\\% \\textit{($(round(std_recall, digits = 2)))} & $(round(specificity*100, digits=2))\\% \\textit{($(round(std_specificity, digits = 2)))} & $(round(f1_score*100, digits=2))\\% \\textit{($(round(std_f1_score, digits = 2)))} \\\\")
+        println(
+            "$topology & $(round(accuracy*100, digits=2))\\% \\textit{($(round(std_accuracy, digits = 2)))} & $(round(recall*100, digits=2))\\% \\textit{($(round(std_recall, digits = 2)))} & $(round(specificity*100, digits=2))\\% \\textit{($(round(std_specificity, digits = 2)))} & $(round(f1_score*100, digits=2))\\% \\textit{($(round(std_f1_score, digits = 2)))} \\\\",
+        )
     end
-    
+
 end
 
 file_path = "datasets/super_simplified_Android_Malware.csv";
-data = CSV.File(file_path, header=true) |> DataFrame;
+data = CSV.File(file_path, header = true) |> DataFrame;
 
 columns_to_drop = ["Flow ID", " Timestamp"]
 columns = names(data)
 
 println("Size of dataframe before dropping columns $(size(data))")
-for column in 1:size(data, 2)
+for column = 1:size(data, 2)
     unique_values = countmap(data[:, column])
 
     if length(unique_values) == 1
@@ -67,7 +72,7 @@ for column in 1:size(data, 2)
         # println(unique_values)
         push!(columns_to_drop, columns[column])
     end
-    
+
 end
 
 select!(data, Not(columns_to_drop))
