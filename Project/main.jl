@@ -7,8 +7,10 @@ using ScikitLearn
 @sk_import svm:SVC;
 @sk_import tree:DecisionTreeClassifier;
 @sk_import neighbors:KNeighborsClassifier;
-@sk_import ensemble:StackingClassifier
-@sk_import ensemble:VotingClassifier
+@sk_import ensemble:StackingClassifier;
+@sk_import ensemble:VotingClassifier;
+@sk_import ensemble:RandomForestClassifier;
+@sk_import decomposition:PCA;
 
 
 # include("utils/split.jl");
@@ -57,7 +59,7 @@ function generate_latex_table(metrics::Dict{String,<:Any}, final::Bool)
 
 end
 
-file_path = "datasets/super_simplified_Android_Malware.csv";
+file_path = "datasets/simplified_Android_Malware.csv";
 data = CSV.File(file_path, header = true) |> DataFrame;
 
 columns_to_drop = ["Flow ID", " Timestamp"]
@@ -106,5 +108,8 @@ println("Size of the input dataset is $(size(input_data))")
 # println("Doing first approach")
 # include("first_approach.jl")
 
-println("Doing second approach")
-include("second_approach.jl")
+# println("Doing second approach")
+# include("second_approach.jl")
+
+println("Doing fourth approach")
+include("fourth_approach.jl")
