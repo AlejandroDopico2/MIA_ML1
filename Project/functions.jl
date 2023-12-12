@@ -300,15 +300,27 @@ function trainClassANN(topology::AbstractArray{<:Int,1},
         
         if useValidation
             validationOutputs = ann(validationInputs')
-            validationAcc = accuracy(validationOutputs', validationTargets)
+            if size(validationOutputs, 1) == 1
+                validationAcc = accuracy(vec(validationOutputs'), vec(validationTargets))
+            else    
+                validationAcc = accuracy(validationOutputs', validationTargets)
+            end
         end
 
         if useTest
-            testOutputs = ann(testInputs')'
-            testAcc = accuracy(testOutputs, testTargets)
+            testOutputs = ann(testInputs')
+            if size(testOutputs, 1) == 1
+                testAcc = accuracy(vec(testOutputs'), vec(testTargets))
+            else    
+                testAcc = accuracy(testOutputs', testTargets)
+            end
         end
         
-        trainingAcc   = accuracy(trainingOutputs',   trainingTargets)
+        if size(trainingOutputs, 1) == 1
+            trainingAcc   = accuracy(vec(trainingOutputs'),   vec(trainingTargets))
+        else
+            trainingAcc   = accuracy(trainingOutputs',   trainingTargets)
+        end
 
         # Update the history of losses and accuracies
         push!(trainingLosses, trainingLoss)
@@ -689,9 +701,7 @@ function train_ann_model(modelHyperparameters, inputs, targets, testInputs, test
 
     for numTraining in 1:modelHyperparameters["repetitions"]
         if modelHyperparameters["validationRatio"] > 0.0
-            println(size(targets))
             trainingInputs, trainingTargets, validationInputs, validationTargets = splitTrainAndValidation(inputs, targets, modelHyperparameters["validationRatio"])
-            println(size(trainingTargets), size(testTargets))
             model, _ = trainClassANN(modelHyperparameters["topology"], (trainingInputs, trainingTargets);
                                     validationDataset = (validationInputs, validationTargets),
                                     testDataset = (testInputs, testTargets),
@@ -716,7 +726,7 @@ function train_ann_model(modelHyperparameters, inputs, targets, testInputs, test
             testSpecificityForEachRepetition[numTraining],
             testPrecisionForEachRepetition[numTraining],
             testNegative_predictive_valueForEachRepetition[numTraining],
-            testfScoreForEachRepetition[numTraining], testConfusionMatrix = confusionMatrix(testOutputs, testTargets)
+            testfScoreForEachRepetition[numTraining], testConfusionMatrix = (size(testTargets, 2) == 1) ? confusionMatrix(vec(testOutputs), vec(testTargets)) : confusionMatrix(testOutputs, testTargets)
 
     end
 
@@ -803,7 +813,6 @@ function createAndTrainFinalModel(modelType::Symbol, modelHyperparameters::Dict,
         trainingTargets = oneHotEncoding(trainingTargets)
         testTargets = oneHotEncoding(testTargets)
         modelHyperparameters["repetitions"] = 1
-        println(size(testTargets))
         testAccuracy, testErrorRate, testRecall, testSpecificity, testPrecision, testNegativePredictiveValue, testfScore, testConfusionMatrix = train_ann_model(modelHyperparameters, trainingInputs, trainingTargets, testInputs, testTargets)
     else
         model = create_model(modelType, modelHyperparameters)
@@ -994,9 +1003,9 @@ function trainClassEnsemble(baseEstimator::Symbol,
     NumEstimators::Int=100,
     final_estimator:: AbstractDict = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 1))
 
-estimators = fill(baseEstimator, NumEstimators)
-modelsHyperParameters = fill(modelsHyperParameters, NumEstimators)
+    estimators = fill(baseEstimator, NumEstimators)
+    modelsHyperParameters = fill(modelsHyperParameters, NumEstimators)
 
-return trainClassEnsemble(estimators, modelsHyperParameters, trainingDataset, kFoldIndices)
+    return trainClassEnsemble(estimators, modelsHyperParameters, trainingDataset, kFoldIndices)
 
 end
