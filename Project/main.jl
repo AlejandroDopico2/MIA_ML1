@@ -14,10 +14,10 @@ using Flux
 @sk_import decomposition:PCA;
 
 
-include("modules/ClassificationMetrics.jl")
-include("modules/DataHandling.jl")
-include("modules/DataPreprocessing.jl")
-include("modules/Model.jl")
+include("utils/ClassificationMetrics.jl")
+include("utils/DataHandling.jl")
+include("utils/DataPreprocessing.jl")
+include("utils/Model.jl")
 
 using .ClassificationMetrics
 using .DataHandling
