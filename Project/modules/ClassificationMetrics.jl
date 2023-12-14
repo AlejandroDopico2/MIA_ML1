@@ -5,6 +5,7 @@ Dedicated to evaluating the performance of classification models, this module pr
 It includes functions for classifying model outputs based on thresholds, computing accuracy metrics for binary and multi-class classification,
 and generating confusion matrices. These functions enable the assessment of predictive accuracy and performance of classification models.
 """
+
 using Statistics
 
 export accuracy, confusionMatrix
