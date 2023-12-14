@@ -232,55 +232,55 @@ for (kernel, C) in svms
 
 end
 
-# println("-------------------------Ensembles---------------------------------------")
+println("-------------------------Ensembles---------------------------------------")
 
 
-# dtParameters = Dict("modelType" => :DecisionTree, "maxDepth" => 5)
-# knnParameters = Dict("modelType" => :kNN, "numNeighboors" => 3)
-# svmParameters = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 10)
-# Random.seed!(42)
+dtParameters = Dict("modelType" => :DecisionTree, "maxDepth" => 5)
+knnParameters = Dict("modelType" => :kNN, "numNeighboors" => 3)
+svmParameters = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 10)
+Random.seed!(42)
 
-# ensemble_types = [:VotingHard, :Stacking]
-# final_estimators = [dtParameters, knnParameters, svmParameters]
+ensemble_types = [:VotingHard, :Stacking]
+final_estimators = [dtParameters, knnParameters, svmParameters]
 
-# for ensemble_type in ensemble_types
-#     for final_estimator in final_estimators
-#         metricsCV = trainClassEnsemble(
-#             [:DecisionTree, :kNN, :SVM],
-#             [dtParameters, knnParameters, svmParameters],
-#             (train_reduced_inputs, train_reduced_balanced_output),
-#             crossValidationIndexes;
-#             ensembleType = ensemble_type,
-#             final_estimator = final_estimator,
-#         )
-#         metricsCV["topology"] = final_estimator
-#         generate_latex_table(metricsCV, false)
+for ensemble_type in ensemble_types
+    for final_estimator in final_estimators
+        metricsCV = trainClassEnsemble(
+            [:DecisionTree, :kNN, :SVM],
+            [dtParameters, knnParameters, svmParameters],
+            (train_reduced_inputs, train_reduced_balanced_output),
+            crossValidationIndexes;
+            ensembleType = ensemble_type,
+            final_estimator = final_estimator,
+        )
+        metricsCV["topology"] = final_estimator
+        generate_latex_table(metricsCV, false)
 
-#         if ensemble_type == :VotingHard
-#             break
-#         end
+        if ensemble_type == :VotingHard
+            break
+        end
 
-#     end
-# end
+    end
+end
 
-# println("----------------------------------------------------------------")
+println("----------------------------------------------------------------")
 
 
-# for ensemble_type in ensemble_types
-#     for final_estimator in final_estimators
-#         metrics = createAndTrainFinalEnsemble(
-#             [:DecisionTree, :kNN, :SVM],
-#             [dtParameters, knnParameters, svmParameters],
-#             (train_reduced_inputs, train_reduced_balanced_output),
-#             (test_reduced_inputs, test_reduced_balanced_output);
-#             ensembleType = ensemble_type,
-#             final_estimator = final_estimator,
-#         )
-#         metrics["topology"] = final_estimator
-#         generate_latex_table(metrics, true)
+for ensemble_type in ensemble_types
+    for final_estimator in final_estimators
+        metrics = createAndTrainFinalEnsemble(
+            [:DecisionTree, :kNN, :SVM],
+            [dtParameters, knnParameters, svmParameters],
+            (train_reduced_inputs, train_reduced_balanced_output),
+            (test_reduced_inputs, test_reduced_balanced_output);
+            ensembleType = ensemble_type,
+            final_estimator = final_estimator,
+        )
+        metrics["topology"] = final_estimator
+        generate_latex_table(metrics, true)
 
-#         if ensemble_type == :VotingHard
-#             break
-#         end
-#     end
-# end
+        if ensemble_type == :VotingHard
+            break
+        end
+    end
+end

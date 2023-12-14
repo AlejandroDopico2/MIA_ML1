@@ -35,52 +35,52 @@ normalizeMinMax!(test_input, normalizationParameters)
 kFolds = 10
 crossValidationIndexes = crossvalidation(train_binary_output, kFolds);
 
-# println(
-#     "-------------------------Artificial Neural Networks---------------------------------------",
-# )
+println(
+    "-------------------------Artificial Neural Networks---------------------------------------",
+)
 
-# topologies = [[20], [40], [80], [100], [60, 120], [80, 50], [80, 100], [100, 40]]
+topologies = [[20], [40], [80], [100], [60, 120], [80, 50], [80, 100], [100, 40]]
 
-# annParameters = Dict(
-#     "modelType" => :ANN,
-#     "maxEpochs" => 200,
-#     "learningRate" => 0.01,
-#     "maxEpochsVal" => 30,
-#     "repetitions" => 30,
-#     "validationRatio" => 0.1,
-#     "transferFunctions" => fill(σ, 2),
-# )
+annParameters = Dict(
+    "modelType" => :ANN,
+    "maxEpochs" => 200,
+    "learningRate" => 0.01,
+    "maxEpochsVal" => 30,
+    "repetitions" => 30,
+    "validationRatio" => 0.1,
+    "transferFunctions" => fill(σ, 2),
+)
 
-# for topology in topologies
-#     annParameters["topology"] = topology
-#     metricsCV = modelCrossValidation(
-#         annParameters["modelType"],
-#         annParameters,
-#         train_input,
-#         train_binary_output,
-#         crossValidationIndexes,
-#     )
-#     metricsCV["topology"] = topology
+for topology in topologies
+    annParameters["topology"] = topology
+    metricsCV = modelCrossValidation(
+        annParameters["modelType"],
+        annParameters,
+        train_input,
+        train_binary_output,
+        crossValidationIndexes,
+    )
+    metricsCV["topology"] = topology
 
-#     generate_latex_table(metricsCV, false)
-# end
+    generate_latex_table(metricsCV, false)
+end
 
-# println("----------------------------------------------------------------")
+println("----------------------------------------------------------------")
 
-# for topology in topologies
-#     annParameters["topology"] = topology
-#     metrics = createAndTrainFinalModel(
-#         annParameters["modelType"],
-#         annParameters,
-#         train_input,
-#         train_binary_output,
-#         test_input,
-#         test_binary_output,
-#     )
-#     metrics["topology"] = topology
+for topology in topologies
+    annParameters["topology"] = topology
+    metrics = createAndTrainFinalModel(
+        annParameters["modelType"],
+        annParameters,
+        train_input,
+        train_binary_output,
+        test_input,
+        test_binary_output,
+    )
+    metrics["topology"] = topology
 
-#     generate_latex_table(metrics, true)
-# end
+    generate_latex_table(metrics, true)
+end
 
 println("-------------------------kNN---------------------------------------")
 
