@@ -86,11 +86,12 @@ for topology in topologies
 
     generate_latex_table(metrics, true)
 end
+
 println("-------------------------kNN---------------------------------------")
 
 knnParameters = Dict("modelType" => :kNN, "numNeighboors" => 0)
 
-ks = [3, 5, 7, 10, 15, 20]
+ks = [1, 2, 3, 5, 7, 10, 15]
 for k in ks
     knnParameters["numNeighboors"] = k
     metricsCV = (modelCrossValidation(
@@ -218,7 +219,7 @@ println("-------------------------Ensembles-------------------------------------
 
 
 dtParameters = Dict("modelType" => :DecisionTree, "maxDepth" => nothing)
-knnParameters = Dict("modelType" => :kNN, "numNeighboors" => 3)
+knnParameters = Dict("modelType" => :kNN, "numNeighboors" => 1)
 svmParameters = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 10)
 Random.seed!(42)
 

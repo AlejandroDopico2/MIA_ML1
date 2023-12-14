@@ -3,6 +3,7 @@ using DataFrames
 using Random
 import StatsBase: countmap
 using ScikitLearn
+using Flux
 
 @sk_import svm:SVC;
 @sk_import tree:DecisionTreeClassifier;
@@ -13,16 +14,15 @@ using ScikitLearn
 @sk_import decomposition:PCA;
 
 
-# include("utils/split.jl");
-# include("utils/preprocess.jl");
-# include("utils/crossVal.jl");
-# include("utils/metrics.jl");
-# include("utils/ensemble.jl");
-# include("utils/ann.jl");
-# include("utils/finalModel.jl");
-# include("utils/multiclass.jl");
+include("modules/ClassificationMetrics.jl")
+include("modules/DataHandling.jl")
+include("modules/DataPreprocessing.jl")
+include("modules/Model.jl")
 
-include("utils.jl")
+using .ClassificationMetrics
+using .DataHandling
+using .DataPreprocessing
+using .Model
 
 function ip_to_decimal(ip)
     # Split the IP address into octets
@@ -70,8 +70,7 @@ for column = 1:size(data, 2)
     unique_values = countmap(data[:, column])
 
     if length(unique_values) == 1
-        println("Adding column $(columns[column])")
-        # println(unique_values)
+        println("\t-Removing column $(columns[column])")
         push!(columns_to_drop, columns[column])
     end
 
@@ -105,11 +104,14 @@ input_data = Matrix(data[!, 1:size(data, 2)]);
 
 println("Size of the input dataset is $(size(input_data))")
 
-# println("Doing first approach")
-# include("first_approach.jl")
+println("Doing first approach")
+include("first_approach.jl")
 
-# println("Doing second approach")
-# include("second_approach.jl")
+println("Doing second approach")
+include("second_approach.jl")
+
+println("Doing third approach")
+include("third_approach.jl")
 
 println("Doing fourth approach")
 include("fourth_approach.jl")

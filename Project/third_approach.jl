@@ -27,58 +27,58 @@ normalizeZeroMean!(test_input, standarizationParameters)
 kFolds = 10
 crossValidationIndexes = crossvalidation(train_balanced_output, kFolds);
 
-println(
-    "-------------------------Artificial Neural Networks---------------------------------------",
-)
+# println(
+#     "-------------------------Artificial Neural Networks---------------------------------------",
+# )
 
-topologies = [[20], [40], [80], [100], [60, 120], [80, 50], [80, 100], [100, 40]]
+# topologies = [[20], [40], [80], [100], [60, 120], [80, 50], [80, 100], [100, 40]]
 
-annParameters = Dict(
-    "modelType" => :ANN,
-    "maxEpochs" => 200,
-    "learningRate" => 0.01,
-    "maxEpochsVal" => 30,
-    "repetitions" => 30,
-    "validationRatio" => 0.1,
-    "transferFunctions" => fill(σ, 2),
-)
+# annParameters = Dict(
+#     "modelType" => :ANN,
+#     "maxEpochs" => 200,
+#     "learningRate" => 0.01,
+#     "maxEpochsVal" => 30,
+#     "repetitions" => 30,
+#     "validationRatio" => 0.1,
+#     "transferFunctions" => fill(σ, 2),
+# )
 
-for topology in topologies
-    annParameters["topology"] = topology
-    metricsCV = modelCrossValidation(
-        annParameters["modelType"],
-        annParameters,
-        train_input,
-        train_balanced_output,
-        crossValidationIndexes,
-    )
-    metricsCV["topology"] = topology
+# for topology in topologies
+#     annParameters["topology"] = topology
+#     metricsCV = modelCrossValidation(
+#         annParameters["modelType"],
+#         annParameters,
+#         train_input,
+#         train_balanced_output,
+#         crossValidationIndexes,
+#     )
+#     metricsCV["topology"] = topology
 
-    generate_latex_table(metricsCV, false)
-end
+#     generate_latex_table(metricsCV, false)
+# end
 
-println("----------------------------------------------------------------")
+# println("----------------------------------------------------------------")
 
-for topology in topologies
-    annParameters["topology"] = topology
-    metrics = createAndTrainFinalModel(
-        annParameters["modelType"],
-        annParameters,
-        train_input,
-        train_balanced_output,
-        test_input,
-        test_balanced_output,
-    )
-    metrics["topology"] = topology
+# for topology in topologies
+#     annParameters["topology"] = topology
+#     metrics = createAndTrainFinalModel(
+#         annParameters["modelType"],
+#         annParameters,
+#         train_input,
+#         train_balanced_output,
+#         test_input,
+#         test_balanced_output,
+#     )
+#     metrics["topology"] = topology
 
-    generate_latex_table(metrics, true)
-end
+#     generate_latex_table(metrics, true)
+# end
 
 println("-------------------------kNN---------------------------------------")
 
 knnParameters = Dict("modelType" => :kNN, "numNeighboors" => 0)
 
-ks = [3, 5, 7, 10, 15, 20]
+ks = [1, 2, 3, 5, 7, 10, 15]
 for k in ks
     knnParameters["numNeighboors"] = k
     metricsCV = (modelCrossValidation(
@@ -146,67 +146,67 @@ for depth in depths
     generate_latex_table(metrics, true)
 end
 
-println("-------------------------SVM---------------------------------------")
+# println("-------------------------SVM---------------------------------------")
 
-svmParameters = Dict(
-    "modelType" => :SVM,
-    "C" => 1,
-    "kernel" => "linear",
-    "degree" => 3,
-    "gamma" => "scale",
-)
+# svmParameters = Dict(
+#     "modelType" => :SVM,
+#     "C" => 1,
+#     "kernel" => "linear",
+#     "degree" => 3,
+#     "gamma" => "scale",
+# )
 
-svms = [
-    ("rbf", 0.1),
-    ("rbf", 1.0),
-    ("rbf", 10.0),
-    ("poly", 0.1),
-    ("poly", 1.0),
-    ("linear", 0.1),
-    ("linear", 1.0),
-    ("linear", 10.0),
-]
+# svms = [
+#     ("rbf", 0.1),
+#     ("rbf", 1.0),
+#     ("rbf", 10.0),
+#     ("poly", 0.1),
+#     ("poly", 1.0),
+#     ("linear", 0.1),
+#     ("linear", 1.0),
+#     ("linear", 10.0),
+# ]
 
-for (kernel, C) in svms
-    svmParameters["kernel"] = kernel
-    svmParameters["C"] = C
-    metricsCV = (modelCrossValidation(
-        svmParameters["modelType"],
-        svmParameters,
-        train_input,
-        train_balanced_output,
-        crossValidationIndexes,
-    ))
-    metricsCV["topology"] = kernel * " & " * string(C)
+# for (kernel, C) in svms
+#     svmParameters["kernel"] = kernel
+#     svmParameters["C"] = C
+#     metricsCV = (modelCrossValidation(
+#         svmParameters["modelType"],
+#         svmParameters,
+#         train_input,
+#         train_balanced_output,
+#         crossValidationIndexes,
+#     ))
+#     metricsCV["topology"] = kernel * " & " * string(C)
 
-    generate_latex_table(metricsCV, false)
+#     generate_latex_table(metricsCV, false)
 
-end
+# end
 
-println("----------------------------------------------------------------")
+# println("----------------------------------------------------------------")
 
-for (kernel, C) in svms
-    svmParameters["kernel"] = kernel
-    svmParameters["C"] = C
-    metrics = createAndTrainFinalModel(
-        svmParameters["modelType"],
-        svmParameters,
-        train_input,
-        train_balanced_output,
-        test_input,
-        test_balanced_output,
-    )
-    metrics["topology"] = kernel * " & " * string(C)
+# for (kernel, C) in svms
+#     svmParameters["kernel"] = kernel
+#     svmParameters["C"] = C
+#     metrics = createAndTrainFinalModel(
+#         svmParameters["modelType"],
+#         svmParameters,
+#         train_input,
+#         train_balanced_output,
+#         test_input,
+#         test_balanced_output,
+#     )
+#     metrics["topology"] = kernel * " & " * string(C)
 
-    generate_latex_table(metrics, true)
+#     generate_latex_table(metrics, true)
 
-end
+# end
 
 println("-------------------------Ensembles---------------------------------------")
 
 
-dtParameters = Dict("modelType" => :DecisionTree, "maxDepth" => 5)
-knnParameters = Dict("modelType" => :kNN, "numNeighboors" => 3)
+dtParameters = Dict("modelType" => :DecisionTree, "maxDepth" => nothing)
+knnParameters = Dict("modelType" => :kNN, "numNeighboors" => 1)
 svmParameters = Dict("modelType" => :SVM, "kernel" => "rbf", "C" => 10)
 Random.seed!(42)
 
