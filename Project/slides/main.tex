@@ -50,6 +50,11 @@
   \end{tikzpicture}
 }
 
+\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{arrows.meta,arrows}
+\usetikzlibrary{positioning}
+\usepackage{adjustbox}
+
 %\renewcommand{\labelenumi}{\SebastianoItem{\arabic{enumi}}}
 
 % ---------------- Configuración listas -----------------------
@@ -150,8 +155,6 @@ picture]{%
         \end{itemize}
   \end{enumerate}
 
-\pause
-
 % \begin{columns}
 % \column{0.6\textwidth}
 %     \begin{itemize}
@@ -204,6 +207,37 @@ Total size            & 355,630                & 3,557\\ \hline
 \end{table}
 
 
+\end{frame}
+%------------------------------------------------------
+\begin{frame}{Introduction}
+\framesubtitle{Pipeline}
+\centering
+\begin{tikzpicture}[>=latex', scale=0.8, every node/.style={scale=0.8}]
+    \tikzset{
+        block/.style= {draw, rectangle, align=center, minimum width=1.5cm, minimum height=0.75cm},
+        rblock/.style={draw, shape=rectangle, rounded corners=1em, align=center, minimum width=1.5cm, minimum height=0.75cm},
+        input/.style={ % requires library shapes.geometric
+            draw,
+            trapezium,
+            trapezium left angle=60,
+            trapezium right angle=120,
+            minimum width=1.5cm,
+            align=center,
+            minimum height=0.75cm
+        },
+    }
+    \node [rblock] (DataPreprocessing) {Data Preprocessing};
+    \node [rblock, below right = 0.5cm and 1cm of DataPreprocessing] (FeatureEngineering) {Feature Engineering};
+    \node [rblock, below left = 0.5cm and 1cm of FeatureEngineering] (DefinedHyperparameters) {Defined Hyperparameters};
+    \node [rblock, below right = 0.5cm and 1cm of DefinedHyperparameters] (TrainedModels) {Trained Models};
+    \node [rblock, below left = 0.5cm and 1cm of TrainedModels] (EvaluatedModels) {Evaluated Models};
+
+    %% paths
+    \path[draw,->] (DataPreprocessing) edge (FeatureEngineering)
+                (FeatureEngineering) edge (DefinedHyperparameters)
+                (DefinedHyperparameters) edge (TrainedModels)
+                (TrainedModels) edge (EvaluatedModels);
+\end{tikzpicture}
 \end{frame}
 %------------------------------------------------------
 \section{Approaches}
