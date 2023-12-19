@@ -226,9 +226,9 @@ Total size            & 355,630                & 3,557\\ \hline
             minimum height=0.75cm
         },
     }
-    \node [rblock] (DataPreprocessing) {Data Preprocessing};
-    \node [rblock, below right = 0.5cm and 1cm of DataPreprocessing] (FeatureEngineering) {Feature Engineering};
-    \node [rblock, below left = 0.5cm and 1cm of FeatureEngineering] (DefinedHyperparameters) {Defined Hyperparameters};
+    \node [rblock] (FeatureEngineering) {Feature Engineering};
+    \node [rblock, below right = 0.5cm and 1cm of FeatureEngineering] (DataPreprocessing) {Data Preprocessing};
+    \node [rblock, below left = 0.5cm and 1cm of DataPreprocessing] (DefinedHyperparameters) {Defined Hyperparameters};
     \node [rblock, below right = 0.5cm and 1cm of DefinedHyperparameters] (TrainedModels) {Trained Models};
     \node [rblock, below left = 0.5cm and 1cm of TrainedModels] (EvaluatedModels) {Evaluated Models};
 
