@@ -29,7 +29,7 @@
 
 % ---------------- Configuración fuente -----------------------
 \usefonttheme{structurebold}
-\setbeamerfont{structure}{family=\sffamily} 
+\setbeamerfont{structure}{family=\sffamily}
 \usepackage{booktabs}
 
 % ---------------- Configuración charts -----------------------
@@ -93,7 +93,7 @@ picture]{%
 % \frametitle{Table of contents}
 
 % \tableofcontents
-    
+
 % \end{frame}
 
 %------------------------------------------------------
@@ -176,14 +176,14 @@ picture]{%
 %             \item Packets details
 %         \end{itemize}
 %     \end{itemize}
-    
+
 
 % \column{0.65\textwidth}
 %     \begin{figure}
 %         \centering
 %         \includegraphics[width=\textwidth]{images/datasetPieChart.png} % Hay que cambiar esto, esta al reves.
 %     \end{figure}
-    
+
 % \end{columns}
 \end{frame}
 
@@ -256,7 +256,7 @@ Total size            & 355,630                & 3,557\\ \hline
     \begin{tabular}{ll}
      \hline
      Label       & Entries \\ \hline
-     Benign      & 237  \\ 
+     Benign      & 237  \\
      Malware     & 3,320 \\ \hline
      Total size  & 3,557 \\ \hline
      \end{tabular}
@@ -496,6 +496,27 @@ Total size            & 355,630                & 3,557\\ \hline
 \end{table}
 \end{frame}
 %------------------------------------------------------
+\begin{frame}{Approach 1: Binary Classification}
+\framesubtitle{Conclussion}
+\begin{columns}
+    \begin{column}{0.5\textwidth}
+	\begin{itemize}
+	    \item Excellent recall.
+	    \item Poor specificity.
+	    \item Models predicting nearly every instance as malware.
+	\end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.8\textwidth]{images/scale.png}
+            %\caption{Balanced classes}
+        \end{figure}
+    \end{column}
+
+\end{columns}
+\end{frame}
+%------------------------------------------------------
 \begin{frame}{Approach 2: Binary Classification
 with Balanced Classes}
 \framesubtitle{Data Preprocessing}
@@ -516,7 +537,7 @@ with Balanced Classes}
             \begin{tabular}{ll}
                 \hline
                 Label                 & Entries \\ \hline
-                Benign                &   3,320  \\ 
+                Benign                &   3,320  \\
                 Malware               &   3,320  \\ \hline
                 Total size            &   6,640  \\ \hline
             \end{tabular}
@@ -771,6 +792,31 @@ with Balanced Classes}
 \end{table}
 \end{frame}
 %------------------------------------------------------
+\begin{frame}{Approach 2: Binary Classification
+with Balanced Classes}
+\framesubtitle{Conclussion}
+\begin{columns}
+    \begin{column}{0.5\textwidth}
+	\begin{itemize}
+	    \item Significant enhancement in binary classification.
+	    \item Ensembles as the top performer:
+	    \begin{itemize}
+	        \item Combining base models.
+	        \item Enhanced knowledge representation.
+	    \end{itemize}
+	\end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.8\textwidth]{images/load-balancer.png}
+            %\caption{Balanced classes}
+        \end{figure}
+    \end{column}
+
+\end{columns}
+\end{frame}
+%------------------------------------------------------
 \begin{frame}{Approach 3: Multiclass Classification}
 \framesubtitle{Data Preprocessing}
 \pause
@@ -790,7 +836,7 @@ with Balanced Classes}
             \begin{tabular}{ll}
                 \hline
         Label                 & Entries  \\ \hline
-        Benign                &   1,475  \\ 
+        Benign                &   1,475  \\
         Android\_Scareware    &   1,475  \\
         Android\_SMS\_Malware &   1,475  \\
         Android\_Adware       &   1,475  \\
@@ -806,7 +852,7 @@ with Balanced Classes}
 %     \begin{tabular}{ll}
 %         \hline
 %         Label                 & Entries  \\ \hline
-%         Benign                &   1,475  \\ 
+%         Benign                &   1,475  \\
 %         Android\_Scareware    &   1,475  \\
 %         Android\_SMS\_Malware &   1,475  \\
 %         Android\_Adware       &   1,475  \\
@@ -1054,6 +1100,28 @@ linear & 10.0 & 30.93\%  & 30.93\%  & 76.65\%  & 29.2\% & [117 108 43 34; 59 151
     \label{tab:EM_approach3}
 \end{table}
 \end{frame}
+
+%------------------------------------------------------
+\begin{frame}{Approach 3: Multiclass Classification}
+\framesubtitle{Conclussion}
+\begin{columns}
+    \begin{column}{0.5\textwidth}
+	\begin{itemize}
+	    \item Data balancing remains crucial.
+	    \item Ensembles keeps demonstrating superior outcomes.
+	    \item Remarkably good results for a 4-class problem.
+	\end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.8\textwidth]{images/load-balancer.png}
+            %\caption{Balanced classes}
+        \end{figure}
+    \end{column}
+
+\end{columns}
+\end{frame}
 %------------------------------------------------------
 \begin{frame}{Approach 4: Multiclass Classification with data dimensionality reduction}
 \framesubtitle{Data Preprocessing}
@@ -1075,7 +1143,7 @@ linear & 10.0 & 30.93\%  & 30.93\%  & 76.65\%  & 29.2\% & [117 108 43 34; 59 151
             \begin{tabular}{ll}
          \hline
          Label                 & Entries  \\ \hline
-         Benign                &   1,475  \\ 
+         Benign                &   1,475  \\
          Android\_Scareware    &   1,475  \\
         Android\_SMS\_Malware &   1,475  \\
          Android\_Adware       &   1,475  \\ \hline
@@ -1090,7 +1158,7 @@ linear & 10.0 & 30.93\%  & 30.93\%  & 76.65\%  & 29.2\% & [117 108 43 34; 59 151
 %     \begin{tabular}{ll}
 %         \hline
 %         Label                 & Entries  \\ \hline
-%         Benign                &   1,475  \\ 
+%         Benign                &   1,475  \\
 %         Android\_Scareware    &   1,475  \\
 %         Android\_SMS\_Malware &   1,475  \\
 %         Android\_Adware       &   1,475  \\ \hline
@@ -1339,6 +1407,26 @@ linear & 10.0 & 26.69\%  & 26.69\%  & 75.24\%  & 17.13\% & [0 220 0 82; 0 234 2 
     \caption{Ensemble Model metrics result}
     \label{tab:EM_approach4}
 \end{table}
+\end{frame}
+%------------------------------------------------------
+\begin{frame}{Approach 4: Multiclass Classification with data dimensionality reduction}
+\framesubtitle{Conclussion}
+\begin{columns}
+    \begin{column}{0.5\textwidth}
+	\begin{itemize}
+	    \item Slightly varied outcomes using nearly half the features.
+	    \item Reduced training time.
+	\end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+        \begin{figure}
+            \centering
+            \includegraphics[width=0.8\textwidth]{images/analytics.png}
+            %\caption{Balanced classes}
+        \end{figure}
+    \end{column}
+
+\end{columns}
 \end{frame}
 %------------------------------------------------------
 \section{Conclusions and future work}
